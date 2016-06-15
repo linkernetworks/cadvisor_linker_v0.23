@@ -626,6 +626,7 @@ func checkString(line string) string {
 }
 
 func (c *PrometheusCollector) GetLinkerUDPMonitorInfo(index, description, port, protocol, key1, key2 string, container *info.ContainerInfo, ch chan<- prometheus.Metric) {
+	fmt.Println("GetLinkerUDPMonitorInfo %v, %v", index, port)
 	id := container.Name
 	name := id
 	if len(container.Aliases) > 0 {

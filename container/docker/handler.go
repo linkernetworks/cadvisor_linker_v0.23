@@ -18,7 +18,6 @@ package docker
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path"
 	"strings"
 	"time"
@@ -28,12 +27,13 @@ import (
 	containerlibcontainer "github.com/google/cadvisor/container/libcontainer"
 	"github.com/google/cadvisor/fs"
 	info "github.com/google/cadvisor/info/v1"
-	"github.com/google/cadvisor/utils"
 
-	docker "github.com/fsouza/go-dockerclient"
+	docker "github.com/docker/engine-api/client"
+	dockercontainer "github.com/docker/engine-api/types/container"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	cgroupfs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
 	libcontainerconfigs "github.com/opencontainers/runc/libcontainer/configs"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -78,7 +78,7 @@ type dockerContainerHandler struct {
 	rootFs string
 
 	// The network mode of the container
-	networkMode string
+	networkMode dockercontainer.NetworkMode
 
 	// Filesystem handler.
 	fsHandler common.FsHandler
@@ -174,11 +174,16 @@ func newDockerContainerHandler(
 	}
 
 	// We assume that if Inspect fails then the container is not known to docker.
-	ctnr, err := client.InspectContainer(id)
+	ctnr, err := client.ContainerInspect(context.Background(), id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to inspect container %q: %v", id, err)
 	}
-	handler.creationTime = ctnr.Created
+	// Timestamp returned by Docker is in time.RFC3339Nano format.
+	handler.creationTime, err = time.Parse(time.RFC3339Nano, ctnr.Created)
+	if err != nil {
+		// This should not happen, report the error just in case
+		return nil, fmt.Errorf("failed to parse the create timestamp %q for container %q: %v", ctnr.Created, id, err)
+	}
 	handler.pid = ctnr.State.Pid
 
 	// Add the name and bare ID as aliases of the container.
@@ -222,78 +227,20 @@ func (self *dockerContainerHandler) ContainerReference() (info.ContainerReferenc
 	}, nil
 }
 
-func (self *dockerContainerHandler) readLibcontainerConfig() (*libcontainerconfigs.Config, error) {
-	config, err := containerlibcontainer.ReadConfig(*dockerRootDir, *dockerRunDir, self.id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read libcontainer config: %v", err)
-	}
-
-	// Replace cgroup parent and name with our own since we may be running in a different context.
-	if config.Cgroups == nil {
-		config.Cgroups = new(libcontainerconfigs.Cgroup)
-	}
-	config.Cgroups.Name = self.name
-	config.Cgroups.Parent = "/"
-
-	return config, nil
-}
-
-func libcontainerConfigToContainerSpec(config *libcontainerconfigs.Config, mi *info.MachineInfo) info.ContainerSpec {
-	var spec info.ContainerSpec
-	spec.HasMemory = true
-	spec.Memory.Limit = math.MaxUint64
-	spec.Memory.SwapLimit = math.MaxUint64
-
-	if config.Cgroups.Resources != nil {
-		if config.Cgroups.Resources.Memory > 0 {
-			spec.Memory.Limit = uint64(config.Cgroups.Resources.Memory)
-		}
-		if config.Cgroups.Resources.MemorySwap > 0 {
-			spec.Memory.SwapLimit = uint64(config.Cgroups.Resources.MemorySwap)
-		}
-
-		// Get CPU info
-		spec.HasCpu = true
-		spec.Cpu.Limit = 1024
-		if config.Cgroups.Resources.CpuShares != 0 {
-			spec.Cpu.Limit = uint64(config.Cgroups.Resources.CpuShares)
-		}
-		spec.Cpu.Mask = utils.FixCpuMask(config.Cgroups.Resources.CpusetCpus, mi.NumCores)
-	}
-
-	spec.HasDiskIo = true
-
-	return spec
-}
-
 func (self *dockerContainerHandler) needNet() bool {
 	if !self.ignoreMetrics.Has(container.NetworkUsageMetrics) {
-		return !strings.HasPrefix(self.networkMode, "container:")
+		return !self.networkMode.IsContainer()
 	}
 	return false
 }
 
 func (self *dockerContainerHandler) GetSpec() (info.ContainerSpec, error) {
-	mi, err := self.machineInfoFactory.GetMachineInfo()
-	if err != nil {
-		return info.ContainerSpec{}, err
-	}
-	libcontainerConfig, err := self.readLibcontainerConfig()
-	if err != nil {
-		return info.ContainerSpec{}, err
-	}
-
-	spec := libcontainerConfigToContainerSpec(libcontainerConfig, mi)
-	spec.CreationTime = self.creationTime
-
-	if !self.ignoreMetrics.Has(container.DiskUsageMetrics) {
-		spec.HasFilesystem = true
-	}
+	hasFilesystem := !self.ignoreMetrics.Has(container.DiskUsageMetrics)
+	spec, err := common.GetSpec(self.cgroupPaths, self.machineInfoFactory, self.needNet(), hasFilesystem)
 
 	spec.Labels = self.labels
 	spec.Envs = self.envs
 	spec.Image = self.image
-	spec.HasNetwork = self.needNet()
 
 	return spec, err
 }
@@ -376,11 +323,6 @@ func (self *dockerContainerHandler) GetCgroupPath(resource string) (string, erro
 	return path, nil
 }
 
-func (self *dockerContainerHandler) ListThreads(listType container.ListType) ([]int, error) {
-	// TODO(vmarmol): Implement.
-	return nil, nil
-}
-
 func (self *dockerContainerHandler) GetContainerLabels() map[string]string {
 	return self.labels
 }
@@ -399,73 +341,5 @@ func (self *dockerContainerHandler) StopWatchingSubcontainers() error {
 }
 
 func (self *dockerContainerHandler) Exists() bool {
-	return containerlibcontainer.Exists(*dockerRootDir, *dockerRunDir, self.id)
-}
-
-func DockerInfo() (docker.DockerInfo, error) {
-	client, err := Client()
-	if err != nil {
-		return docker.DockerInfo{}, fmt.Errorf("unable to communicate with docker daemon: %v", err)
-	}
-	info, err := client.Info()
-	if err != nil {
-		return docker.DockerInfo{}, err
-	}
-	return *info, nil
-}
-
-func DockerImages() ([]docker.APIImages, error) {
-	client, err := Client()
-	if err != nil {
-		return nil, fmt.Errorf("unable to communicate with docker daemon: %v", err)
-	}
-	images, err := client.ListImages(docker.ListImagesOptions{All: false})
-	if err != nil {
-		return nil, err
-	}
-	return images, nil
-}
-
-// Checks whether the dockerInfo reflects a valid docker setup, and returns it if it does, or an
-// error otherwise.
-func ValidateInfo() (*docker.DockerInfo, error) {
-	client, err := Client()
-	if err != nil {
-		return nil, fmt.Errorf("unable to communicate with docker daemon: %v", err)
-	}
-
-	dockerInfo, err := client.Info()
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect Docker info: %v", err)
-	}
-
-	// Fall back to version API if ServerVersion is not set in info.
-	if dockerInfo.ServerVersion == "" {
-		version, err := client.Version()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get docker version: %v", err)
-		}
-		dockerInfo.ServerVersion = version.Get("Version")
-	}
-	version, err := parseDockerVersion(dockerInfo.ServerVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if version[0] < 1 {
-		return nil, fmt.Errorf("cAdvisor requires docker version %v or above but we have found version %v reported as %q", []int{1, 0, 0}, version, dockerInfo.ServerVersion)
-	}
-
-	// Check that the libcontainer execdriver is used if the version is < 1.11
-	// (execution drivers are no longer supported as of 1.11).
-	if version[0] <= 1 && version[1] <= 10 &&
-		!strings.HasPrefix(dockerInfo.ExecutionDriver, "native") {
-		return nil, fmt.Errorf("docker found, but not using native exec driver")
-	}
-
-	if dockerInfo.Driver == "" {
-		return nil, fmt.Errorf("failed to find docker storage driver")
-	}
-
-	return dockerInfo, nil
+	return common.CgroupExists(self.cgroupPaths)
 }

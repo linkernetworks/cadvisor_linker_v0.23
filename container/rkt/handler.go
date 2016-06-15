@@ -18,7 +18,6 @@ package rkt
 import (
 	"fmt"
 	"os"
-	"path"
 	"time"
 
 	rktapi "github.com/coreos/rkt/api/v1alpha"
@@ -27,7 +26,6 @@ import (
 	"github.com/google/cadvisor/container/libcontainer"
 	"github.com/google/cadvisor/fs"
 	info "github.com/google/cadvisor/info/v1"
-	"github.com/google/cadvisor/utils"
 	"golang.org/x/net/context"
 
 	"github.com/golang/glog"
@@ -53,8 +51,7 @@ type rktContainerHandler struct {
 	// Whether this container has network isolation enabled.
 	hasNetwork bool
 
-	fsInfo         fs.FsInfo
-	externalMounts []common.Mount
+	fsInfo fs.FsInfo
 
 	rootFs string
 
@@ -74,33 +71,6 @@ type rktContainerHandler struct {
 	ignoreMetrics container.MetricSet
 
 	apiPod *rktapi.Pod
-}
-
-func (handler *rktContainerHandler) GetCgroupPaths() map[string]string {
-	return handler.cgroupPaths
-}
-
-func (handler *rktContainerHandler) GetMachineInfoFactory() info.MachineInfoFactory {
-	return handler.machineInfoFactory
-}
-
-func (handler *rktContainerHandler) GetName() string {
-	return handler.name
-}
-
-func (handler *rktContainerHandler) GetExternalMounts() []common.Mount {
-	return handler.externalMounts
-}
-
-func (handler *rktContainerHandler) HasNetwork() bool {
-	return handler.hasNetwork && !handler.ignoreMetrics.Has(container.NetworkUsageMetrics)
-}
-
-func (handler *rktContainerHandler) HasFilesystem() bool {
-	if !handler.ignoreMetrics.Has(container.DiskUsageMetrics) {
-		return true
-	}
-	return false
 }
 
 func newRktContainerHandler(name string, rktClient rktapi.PublicAPIClient, rktPath string, cgroupSubsystems *libcontainer.CgroupSubsystems, machineInfoFactory info.MachineInfoFactory, fsInfo fs.FsInfo, rootFs string, ignoreMetrics container.MetricSet) (container.ContainerHandler, error) {
@@ -214,12 +184,6 @@ func (handler *rktContainerHandler) ContainerReference() (info.ContainerReferenc
 	}, nil
 }
 
-//Only the Raw handler will return something of value here
-func (handler *rktContainerHandler) GetRootNetworkDevices() ([]info.NetInfo, error) {
-	nd := []info.NetInfo{}
-	return nd, nil
-}
-
 func (handler *rktContainerHandler) Start() {
 	handler.fsHandler.Start()
 }
@@ -229,7 +193,9 @@ func (handler *rktContainerHandler) Cleanup() {
 }
 
 func (handler *rktContainerHandler) GetSpec() (info.ContainerSpec, error) {
-	return common.GetSpec(handler)
+	hasNetwork := handler.hasNetwork && !handler.ignoreMetrics.Has(container.NetworkUsageMetrics)
+	hasFilesystem := !handler.ignoreMetrics.Has(container.DiskUsageMetrics)
+	return common.GetSpec(handler.cgroupPaths, handler.machineInfoFactory, hasNetwork, hasFilesystem)
 }
 
 func (handler *rktContainerHandler) getFsStats(stats *info.ContainerStats) error {
@@ -293,53 +259,7 @@ func (handler *rktContainerHandler) GetContainerLabels() map[string]string {
 }
 
 func (handler *rktContainerHandler) ListContainers(listType container.ListType) ([]info.ContainerReference, error) {
-	containers := make(map[string]struct{})
-
-	// Rkt containers do not have subcontainers, only the "Pod" does.
-	if handler.isPod == false {
-		var ret []info.ContainerReference
-		return ret, nil
-	}
-
-	// Turn the system.slice cgroups  into the Pod's subcontainers
-	for _, cgroupPath := range handler.cgroupPaths {
-		err := common.ListDirectories(path.Join(cgroupPath, "system.slice"), path.Join(handler.name, "system.slice"), listType == container.ListRecursive, containers)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Create the container references. for the Pod's subcontainers
-	ret := make([]info.ContainerReference, 0, len(handler.apiPod.Apps))
-	for cont := range containers {
-		aliases := make([]string, 1)
-		parsed, err := parseName(cont)
-		if err != nil {
-			return nil, fmt.Errorf("this should be impossible!, unable to parse rkt subcontainer name = %s", cont)
-		}
-		aliases = append(aliases, parsed.Pod+":"+parsed.Container)
-
-		labels := make(map[string]string)
-		if annotations, ok := findAnnotations(handler.apiPod.Apps, parsed.Container); !ok {
-			glog.Warningf("couldn't find application in Pod matching %v", parsed.Container)
-		} else {
-			labels = createLabels(annotations)
-		}
-
-		ret = append(ret, info.ContainerReference{
-			Name:      cont,
-			Aliases:   aliases,
-			Namespace: RktNamespace,
-			Labels:    labels,
-		})
-	}
-
-	return ret, nil
-}
-
-func (handler *rktContainerHandler) ListThreads(listType container.ListType) ([]int, error) {
-	// TODO(sjpotter): Implement?  Not implemented with docker yet
-	return nil, nil
+	return common.ListContainers(handler.name, handler.cgroupPaths, listType)
 }
 
 func (handler *rktContainerHandler) ListProcesses(listType container.ListType) ([]int, error) {
@@ -356,11 +276,5 @@ func (handler *rktContainerHandler) StopWatchingSubcontainers() error {
 }
 
 func (handler *rktContainerHandler) Exists() bool {
-	// If any cgroup exists, the container is still alive.
-	for _, cgroupPath := range handler.cgroupPaths {
-		if utils.FileExists(cgroupPath) {
-			return true
-		}
-	}
-	return false
+	return common.CgroupExists(handler.cgroupPaths)
 }

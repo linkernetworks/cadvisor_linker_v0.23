@@ -16,9 +16,11 @@ package rkt
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	rktapi "github.com/coreos/rkt/api/v1alpha"
 
 	"golang.org/x/net/context"
@@ -27,6 +29,8 @@ import (
 
 const (
 	defaultRktAPIServiceAddr = "localhost:15441"
+	timeout                  = 2 * time.Second
+	minimumRktBinVersion     = "1.5.0"
 )
 
 var (
@@ -37,14 +41,41 @@ var (
 
 func Client() (rktapi.PublicAPIClient, error) {
 	once.Do(func() {
-		apisvcConn, err := grpc.Dial(defaultRktAPIServiceAddr, grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+		conn, err := net.DialTimeout("tcp", defaultRktAPIServiceAddr, timeout)
 		if err != nil {
 			rktClient = nil
-			rktClientErr = fmt.Errorf("rkt: cannot connect to rkt api service: %v", err)
+			rktClientErr = fmt.Errorf("rkt: cannot tcp Dial rkt api service: %v", err)
 			return
 		}
 
-		rktClient = rktapi.NewPublicAPIClient(apisvcConn)
+		conn.Close()
+
+		apisvcConn, err := grpc.Dial(defaultRktAPIServiceAddr, grpc.WithInsecure(), grpc.WithTimeout(timeout))
+		if err != nil {
+			rktClient = nil
+			rktClientErr = fmt.Errorf("rkt: cannot grpc Dial rkt api service: %v", err)
+			return
+		}
+
+		apisvc := rktapi.NewPublicAPIClient(apisvcConn)
+
+		resp, err := apisvc.GetInfo(context.Background(), &rktapi.GetInfoRequest{})
+		if err != nil {
+			rktClientErr = fmt.Errorf("rkt: GetInfo() failed: %v", err)
+			return
+		}
+
+		binVersion, err := semver.Make(resp.Info.RktVersion)
+		if err != nil {
+			rktClientErr = fmt.Errorf("rkt: couldn't parse RtVersion: %v", err)
+			return
+		}
+		if binVersion.LT(semver.MustParse(minimumRktBinVersion)) {
+			rktClientErr = fmt.Errorf("rkt: binary version is too old(%v), requires at least %v", resp.Info.RktVersion, minimumRktBinVersion)
+			return
+		}
+
+		rktClient = apisvc
 	})
 
 	return rktClient, rktClientErr
