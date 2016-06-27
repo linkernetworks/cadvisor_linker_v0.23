@@ -498,7 +498,7 @@ func (c *PrometheusCollector) FetchElasticSerachInfo(index, description string, 
 			return
 		}
 
-		process(INDEX_MEMORY_USAGE, "Usage of Memory on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, memoryAvgUsage, containerInfo, ch)
+//		process(INDEX_MEMORY_USAGE, "Usage of Memory on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, memoryAvgUsage, containerInfo, ch)
 		process(INDEX_CPU_USAGE, "Usage of CPU on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, cpuAvgUsage, containerInfo, ch)
 	}
 
