@@ -44,6 +44,8 @@ const (
 
 	ALERT_NAME = "alert_name"
 
+	ALERT_ENABLE = "ALERT_ENABLE"
+
 	ALERT_HIGH_MEMORY                  = "HighMemoryAlert"
 	ALERT_LOW_MEMORY                   = "LowMemoryAlert"
 	ALERT_HIGH_CPU                     = "HighCpuAlert"
@@ -367,7 +369,7 @@ func (c *PrometheusCollector) CalLinkerHAProxyIndexs(index, description string, 
 func (c *PrometheusCollector) IsAlertEnable(container *docker.Container) (result bool) {
 
 	if container != nil {
-		envValue := GetContainerEnvValue(container, "ALERT_ENABLE")
+		envValue := GetContainerEnvValue(container, ALERT_ENABLE)
 		temp, err := strconv.ParseBool(envValue)
 		if err != nil {
 			temp = false
