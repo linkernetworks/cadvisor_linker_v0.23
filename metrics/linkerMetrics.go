@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/fsouza/go-dockerclient"
 	info "github.com/google/cadvisor/info/v1"
 	"github.com/jmoiron/jsonq"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -35,24 +35,23 @@ const (
 	LINKER_APP_ID             = "LINKER_APP_ID"
 	LINKER_REPAIR_TEMPALTE_ID = "LINKER_REPAIR_TEMPLATE_ID"
 
-	INDEX_MEMORY_USAGE                     = "memory_usage"
-	INDEX_CPU_USAGE                        = "cpu_usage"
-	INDEX_LOAD_USAGE                       = "load_usage"
-	INDEX_NETWORK_TRANSMIT_PACKAGES_TOTAL  = "network_transmit_packets_per_second_total"
-	INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL   = "network_receive_packets_per_second_total"
-	INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER  = "transmit_package_number"
+	INDEX_MEMORY_USAGE                    = "memory_usage"
+	INDEX_CPU_USAGE                       = "cpu_usage"
+	INDEX_LOAD_USAGE                      = "load_usage"
+	INDEX_NETWORK_TRANSMIT_PACKAGES_TOTAL = "network_transmit_packets_per_second_total"
+	INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL  = "network_receive_packets_per_second_total"
+	INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER = "transmit_package_number"
 
 	ALERT_NAME = "alert_name"
 
-	ALERT_HIGH_MEMORY       = "HighMemoryAlert"
-	ALERT_LOW_MEMORY        = "LowMemoryAlert"
-	ALERT_HIGH_CPU          = "HighCpuAlert"
-	ALERT_LOW_CPU           = "LowCpuAlert"
-	ALERT_HIGH_REV_PACKAGES = "HighRevPackagesAlert"
-	ALERT_LOW_REV_PACKAGES  = "LowRevPackagesAlert"
-	ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER        = "HighTransmitPackageNumberAlert"
-	ALERT_LOW_TRANSMIT_PACKAGE_NUMBER          = "LowTransmitPackageNumberAlert"
-	
+	ALERT_HIGH_MEMORY                  = "HighMemoryAlert"
+	ALERT_LOW_MEMORY                   = "LowMemoryAlert"
+	ALERT_HIGH_CPU                     = "HighCpuAlert"
+	ALERT_LOW_CPU                      = "LowCpuAlert"
+	ALERT_HIGH_REV_PACKAGES            = "HighRevPackagesAlert"
+	ALERT_LOW_REV_PACKAGES             = "LowRevPackagesAlert"
+	ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER = "HighTransmitPackageNumberAlert"
+	ALERT_LOW_TRANSMIT_PACKAGE_NUMBER  = "LowTransmitPackageNumberAlert"
 
 	ALERT_HIGH_CURRENT_SESSION = "HighCurrentSessionAlert"
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
@@ -498,7 +497,7 @@ func (c *PrometheusCollector) FetchElasticSerachInfo(index, description string, 
 			return
 		}
 
-//		process(INDEX_MEMORY_USAGE, "Usage of Memory on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, memoryAvgUsage, containerInfo, ch)
+		//		process(INDEX_MEMORY_USAGE, "Usage of Memory on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, memoryAvgUsage, containerInfo, ch)
 		process(INDEX_CPU_USAGE, "Usage of CPU on the ElasticSearch Docker instance.", id, image, name, appId, nodeNumber, cpuAvgUsage, containerInfo, ch)
 	}
 
@@ -566,14 +565,14 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 			{
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_MEMORY)
-			}	
+			}
 		case INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER:
 			{
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
 		}
-		
+
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
 		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, lowValueSlice...)
 	}
@@ -601,7 +600,7 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
 			}
 		}
-		
+
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_high"+THRESHOLD_CAL_RESULT_SUFFIX, description, highLableSlice, nil)
 		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, highValueSlice...)
 	}
@@ -648,22 +647,22 @@ func (c *PrometheusCollector) GetLinkerUDPMonitorInfo(index, description, port, 
 		rdmPort := ""
 		foundFlag := false
 		for key := range containerInfo.HostConfig.PortBindings {
-			if (key.Port() == port && key.Proto() == protocol) {
+			if key.Port() == port && key.Proto() == protocol {
 				foundFlag = true
 				rdmPort = containerInfo.HostConfig.PortBindings[key][0].HostPort
 			}
-			
+
 		}
-		
+
 		fmt.Printf("RdmPort is %s \n", rdmPort)
-		
+
 		if !foundFlag {
 			fmt.Printf("Can't port mapping for %s, just return\n", port)
 			return
 		}
-		
+
 		host := GetContainerEnvValue(containerInfo, "HOST")
-		
+
 		node, packageNumber, err := UdpCall(host, rdmPort, key1, key2)
 		if err != nil {
 			fmt.Println("UDP call to fetch info failed.", err)
@@ -673,7 +672,7 @@ func (c *PrometheusCollector) GetLinkerUDPMonitorInfo(index, description, port, 
 				fmt.Printf("Node number is zero! Will not generate monitor info...")
 				return
 			}
-			
+
 			appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
 			process(index, description, id, image, name, appId, int64(node), float64(packageNumber/node), containerInfo, ch)
 		}

@@ -17,15 +17,15 @@ package metrics
 import (
 	"fmt"
 	"regexp"
-	"time"
 	"strings"
-//	"strconv"
+	"time"
+	//	"strconv"
 
 	info "github.com/google/cadvisor/info/v1"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/fsouza/go-dockerclient"
 )
 
 // This will usually be manager.Manager, but can be swapped out for testing.
@@ -81,7 +81,7 @@ type PrometheusCollector struct {
 	errors                prometheus.Gauge
 	containerMetrics      []containerMetric
 	containerNameToLabels ContainerNameToLabelsFunc
-	client  			  *docker.Client
+	client                *docker.Client
 }
 
 // NewPrometheusCollector returns a new PrometheusCollector.
@@ -93,7 +93,7 @@ func NewPrometheusCollector(infoProvider infoProvider, f ContainerNameToLabelsFu
 	c := &PrometheusCollector{
 		infoProvider:          infoProvider,
 		containerNameToLabels: f,
-		client: dockerClient,
+		client:                dockerClient,
 		errors: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: "container",
 			Name:      "scrape_error",
@@ -515,9 +515,9 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 		glog.Warningf("Couldn't get containers: %s", err)
 		return
 	}
-	
+
 	fmt.Printf("collectContainersInfo called! \n")
-	
+
 	for _, container := range containers {
 		baseLabels := []string{"id"}
 		id := container.Name
@@ -526,51 +526,50 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 			name = container.Aliases[0]
 			baseLabels = append(baseLabels, "name")
 		}
-		
+
 		if strings.Contains(name, "mesos") {
-			
+
 			image := container.Spec.Image
 			if len(image) > 0 {
 				baseLabels = append(baseLabels, "image")
 			}
 			baseLabelValues := []string{id, name, image}[:len(baseLabels)]
-			
+
 			fmt.Printf("image: %s \n", image)
-			
+
 			if strings.Contains(image, "linker_marathon_lb") {
 				// haproxy exporter
-//				id := container.Name
-//				name := id
-//				if len(container.Aliases) > 0 {
-//					name = container.Aliases[0]
-//				}
+				//				id := container.Name
+				//				name := id
+				//				if len(container.Aliases) > 0 {
+				//					name = container.Aliases[0]
+				//				}
 
-//				containerInfo, _ := c.client.InspectContainer(name)
-//				ipAddr := GetContainerEnvValue(containerInfo, LINKER_WEAVE_CIDR)
-////				ipAddr = "192.168.10.71"
-//				ipAddr = parseIpAddr(ipAddr)
-//				url := "http://" + ipAddr + ":9090/haproxy?stats;csv;norefresh"
-////				url = "http://192.168.10.71:32876/haproxy?stats;csv;norefresh"
-//				fields := strconv.FormatInt(current_session_index, 10)
-//				fmt.Printf("Haproxy url is %s \n", url)
-//				value, total := initHaproxyExporter(url, fields, ch)
-//				fmt.Printf("---------------- value = %v", value)
-//				// Now for the actual metrics
-//				stats := container.Stats[0]
-				
-//				fmt.Printf("Add new Metric for get networks adapter receive bytes by second\n")
-//				// Add new Metric for get networks adapter receive bytes by second.
-//				if len(container.Stats) >= 2 {
-//					fmt.Printf("Add new Metric >=2 \n")
-//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], int64(total))
-//				} else {
-//					fmt.Printf("Add new Metric =1 \n")
-//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, stats, nil, int64(total))
-//				}
+				//				containerInfo, _ := c.client.InspectContainer(name)
+				//				ipAddr := GetContainerEnvValue(containerInfo, LINKER_WEAVE_CIDR)
+				////				ipAddr = "192.168.10.71"
+				//				ipAddr = parseIpAddr(ipAddr)
+				//				url := "http://" + ipAddr + ":9090/haproxy?stats;csv;norefresh"
+				////				url = "http://192.168.10.71:32876/haproxy?stats;csv;norefresh"
+				//				fields := strconv.FormatInt(current_session_index, 10)
+				//				fmt.Printf("Haproxy url is %s \n", url)
+				//				value, total := initHaproxyExporter(url, fields, ch)
+				//				fmt.Printf("---------------- value = %v", value)
+				//				// Now for the actual metrics
+				//				stats := container.Stats[0]
 
-//				c.CalLinkerHAProxyIndexs(INDEX_CURRENT_SESSION, "Current session number.", container, ch, value, int64(total))
-				
-				
+				//				fmt.Printf("Add new Metric for get networks adapter receive bytes by second\n")
+				//				// Add new Metric for get networks adapter receive bytes by second.
+				//				if len(container.Stats) >= 2 {
+				//					fmt.Printf("Add new Metric >=2 \n")
+				//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], int64(total))
+				//				} else {
+				//					fmt.Printf("Add new Metric =1 \n")
+				//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, stats, nil, int64(total))
+				//				}
+
+				//				c.CalLinkerHAProxyIndexs(INDEX_CURRENT_SESSION, "Current session number.", container, ch, value, int64(total))
+
 			} else if strings.Contains(image, "linker_es") {
 				c.FetchElasticSerachInfo(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance.", container, ch)
 			} else if strings.Contains(image, "linker_stack") {
@@ -586,23 +585,23 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 						baseLabelValues = append(baseLabelValues, v)
 					}
 				}
-		
+
 				// Container spec
 				desc := prometheus.NewDesc("container_start_time_seconds", "Start time of the container since unix epoch in seconds.", baseLabels, nil)
 				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(container.Spec.CreationTime.Unix()), baseLabelValues...)
-		
+
 				if container.Spec.HasCpu {
 					desc := prometheus.NewDesc("container_spec_cpu_shares", "CPU share of the container.", baseLabels, nil)
 					ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(container.Spec.Cpu.Limit), baseLabelValues...)
 				}
-		
+
 				if container.Spec.HasMemory {
 					desc := prometheus.NewDesc("container_spec_memory_limit_bytes", "Memory limit for the container.", baseLabels, nil)
 					ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, specMemoryValue(container.Spec.Memory.Limit), baseLabelValues...)
 					desc = prometheus.NewDesc("container_spec_memory_swap_limit_bytes", "Memory swap limit for the container.", baseLabels, nil)
 					ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, specMemoryValue(container.Spec.Memory.SwapLimit), baseLabelValues...)
 				}
-		
+
 				// Now for the actual metrics
 				stats := container.Stats[0]
 				for _, cm := range c.containerMetrics {
@@ -611,10 +610,10 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 						ch <- prometheus.MustNewConstMetric(desc, cm.valueType, float64(metricValue.value), append(baseLabelValues, metricValue.labels...)...)
 					}
 				}
-				
+
 				// Add new Metric for caluate memory usage.
 				c.CalLinkerIndexs(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance.", container, ch, stats, nil, -1)
-				
+
 				// Add new Metric for get networks adapter receive bytes by second.
 				if len(container.Stats) >= 2 {
 					c.CalLinkerIndexs(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], -1)
@@ -622,9 +621,9 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 					c.CalLinkerIndexs(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance.", container, ch, stats, nil, -1)
 				}
 			}
-	
+
 		}
-	
+
 	}
 }
 
