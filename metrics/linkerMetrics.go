@@ -583,16 +583,6 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
-		case INDEX_PGW_INSTANCE:
-			{
-				lowLableSlice = append(lowLableSlice, ALERT_NAME)
-				lowValueSlice = append(lowValueSlice, ALERT_PGW_LOW_INSTANCE)
-			}
-		case INDEX_SGW_INSTANCE:
-			{
-				lowLableSlice = append(lowLableSlice, ALERT_NAME)
-				lowValueSlice = append(lowValueSlice, ALERT_SGW_LOW_INSTANCE)
-			}
 		}
 
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
@@ -620,16 +610,6 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
-			}
-		case INDEX_PGW_INSTANCE:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_PGW_HIGH_INSTANCE)
-			}
-		case INDEX_SGW_INSTANCE:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_SGW_HIGH_INSTANCE)
 			}
 		}
 
@@ -802,13 +782,12 @@ func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, contai
 		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
 
 		switch gwType {
-		// TODO
 		case "PGW":
 			process(INDEX_PGW_INSTANCE, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		case "SGW":
 			process(INDEX_SGW_INSTANCE, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		default:
-			fmt.Println("unknown gw type")
+			fmt.Printf("unknown gw type: %s\n", gwType)
 		}
 	}
 }
