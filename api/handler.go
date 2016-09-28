@@ -72,8 +72,8 @@ func handleRequest(supportedApiVersions map[string]ApiVersion, m manager.Manager
 	}()
 
 	request := r.URL.Path
-	
-	if(strings.HasPrefix(request, linkerApiPrefix)) {
+
+	if strings.HasPrefix(request, linkerApiPrefix) {
 		HandleLinkerRequest(w, r)
 		return nil
 	}

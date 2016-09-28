@@ -26,15 +26,15 @@ const (
 	// pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,check_status,check_code,check_duration,hrsp_1xx,hrsp_2xx,hrsp_3xx,hrsp_4xx,hrsp_5xx,hrsp_other,hanafail,req_rate,req_rate_max,req_tot,cli_abrt,srv_abrt,comp_in,comp_out,comp_byp,comp_rsp,lastsess,
 	expectedCsvFieldCount = 52
 	statusField           = 17
-	current_session_index  = 4
-	
+	current_session_index = 4
+
 	frontend = "0"
 	backend  = "1"
 	server   = "2"
 	listener = "3"
-	
+
 	LINKER_HAPROXY_STACK_SERVERS = "stack_servers"
-//	LINKER_HAPROXY_HSS_SERVERS = "hss_servers"
+	//	LINKER_HAPROXY_HSS_SERVERS = "hss_servers"
 	LINKER_HAPROXY_HSS_SERVERS = "hssdcos_hss_10068"
 )
 
@@ -239,12 +239,12 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) (value int64, total int)
 
 	e.mutex.Lock() // To protect metrics from concurrent collects.
 	defer e.mutex.Unlock()
-//	e.resetMetrics()
+	//	e.resetMetrics()
 	return e.setMetrics(csvRows)
-//	ch <- e.up
-//	ch <- e.totalScrapes
-//	ch <- e.csvParseFailures
-//	e.collectMetrics(ch)
+	//	ch <- e.up
+	//	ch <- e.totalScrapes
+	//	ch <- e.csvParseFailures
+	//	e.collectMetrics(ch)
 }
 
 func (e *Exporter) scrape(csvRows chan<- []string) {
@@ -306,16 +306,16 @@ func (e *Exporter) collectMetrics(metrics chan<- prometheus.Metric) {
 	}
 }
 
-func (e *Exporter) setMetrics(csvRows <-chan []string) (value int64, total int){
-	
+func (e *Exporter) setMetrics(csvRows <-chan []string) (value int64, total int) {
+
 	current_session_value, current_sesion_count := e.fetchCsvData(csvRows, current_session_index, LINKER_HAPROXY_HSS_SERVERS)
 
 	return current_session_value, current_sesion_count
-	
+
 }
 
-func (e *Exporter) fetchCsvData(csvRows <-chan []string, index int, target string) (value int64, total int){
-//	currentSessionValue := ""
+func (e *Exporter) fetchCsvData(csvRows <-chan []string, index int, target string) (value int64, total int) {
+	//	currentSessionValue := ""
 	count := 0
 	var value64 int64
 	for csvRow := range csvRows {
@@ -341,18 +341,18 @@ func (e *Exporter) fetchCsvData(csvRows <-chan []string, index int, target strin
 					e.csvParseFailures.Inc()
 					continue
 				}
-				
+
 				fmt.Printf("frontend Value: %v \n", value)
 
 			}
-			
-//			if type_ == backend {
-//				fmt.Printf("backend csvRow is %v\n", csvRow)
-//				fmt.Printf("backend labels: %s\n", pxname)
-//				fmt.Printf("backend Value: %v \n", csvRow[index])
-//				e.exportCsvFields(e.frontendMetrics, csvRow, pxname)
-//			}
-			
+
+			//			if type_ == backend {
+			//				fmt.Printf("backend csvRow is %v\n", csvRow)
+			//				fmt.Printf("backend labels: %s\n", pxname)
+			//				fmt.Printf("backend Value: %v \n", csvRow[index])
+			//				e.exportCsvFields(e.frontendMetrics, csvRow, pxname)
+			//			}
+
 			if type_ == server {
 				count++
 				fmt.Printf("server csvRow is %v\n", csvRow)
@@ -390,13 +390,13 @@ func (e *Exporter) findFieldValue(csvRows <-chan []string, index int) {
 			fmt.Printf("labels: %s\n", pxname)
 			e.exportCsvFields(e.frontendMetrics, csvRow, pxname)
 		}
-		
+
 		if type_ == backend {
 			fmt.Printf("backend csvRow is %v\n", csvRow)
 			fmt.Printf("backend labels: %s\n", pxname)
 			e.exportCsvFields(e.backendMetrics, csvRow, pxname)
 		}
-		
+
 		if type_ == server {
 			fmt.Printf("server csvRow is %v\n", csvRow)
 			fmt.Printf("server labels: %s\n", pxname)
@@ -437,11 +437,11 @@ func (e *Exporter) exportCsvFields(metrics map[int]*prometheus.GaugeVec, csvRow 
 			}
 		}
 		metric.WithLabelValues(labels...).Set(float64(value))
-//		fmt.Printf("exportCsvFields field %d, value is %s \n", fieldIdx, value)
-		
-//		for _, lableValue := range labels {
-//			fmt.Printf("lableValue: %s \n", lableValue)
-//		}
+		//		fmt.Printf("exportCsvFields field %d, value is %s \n", fieldIdx, value)
+
+		//		for _, lableValue := range labels {
+		//			fmt.Printf("lableValue: %s \n", lableValue)
+		//		}
 	}
 }
 
