@@ -58,7 +58,8 @@ const (
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
 
 	INDEX_CURRENT_SESSION = "current_session"
-	IDEAL_NODE_NUMBER     = "IDEAL_NODE_NUMBER"
+	MIN_NODE_NUMBER       = "INSTANCE_MIN_NUM"
+	MAX_NODE_NUMBER       = "INSTANCE_MAX_NUM"
 
 	DNS_DOMAINNAME            = "marathonlb-lb-linkerdns.marathon.mesos"
 	LINKER_ELASTICSERACH_PORT = "10092"
@@ -224,9 +225,9 @@ func (c *PrometheusCollector) CalLinkerIndexs(index, description string, contain
 			case INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL:
 				{
 					// min number of nodes, no need to scale in.
-					idealNumberSValue := GetContainerEnvValue(containerInfo, IDEAL_NODE_NUMBER)
-					idealNumberValue, _ := strconv.ParseInt(idealNumberSValue, 0, 64)
-					if nodeNumber != -1 && nodeNumber <= idealNumberValue {
+					minNumberSValue := GetContainerEnvValue(containerInfo, MIN_NODE_NUMBER)
+					minNumberValue, _ := strconv.ParseInt(minNumberSValue, 0, 64)
+					if nodeNumber != -1 && nodeNumber <= minNumberValue {
 						temp = 1.0
 					}
 					lowLableSlice = append(lowLableSlice, ALERT_NAME)
@@ -317,9 +318,9 @@ func (c *PrometheusCollector) CalLinkerHAProxyIndexs(index, description string, 
 		highThreadoldEnv := index + THRESHOLD_HIGH_SUFFIX
 		highThresholdSValue := GetContainerEnvValue(containerInfo, strings.ToUpper(highThreadoldEnv))
 
-		idealNumberSValue := GetContainerEnvValue(containerInfo, IDEAL_NODE_NUMBER)
-		idealNumberValue, _ := strconv.ParseInt(idealNumberSValue, 0, 64)
-		fmt.Printf("idealNumberSValue is %s\n", idealNumberSValue)
+		minNumberSValue := GetContainerEnvValue(containerInfo, MIN_NODE_NUMBER)
+		minNumberValue, _ := strconv.ParseInt(minNumberSValue, 0, 64)
+		fmt.Printf("minNumberSValue is %s\n", minNumberSValue)
 
 		lowThreshold := int64(0)
 		// check if Low Threshold is set.
@@ -344,7 +345,7 @@ func (c *PrometheusCollector) CalLinkerHAProxyIndexs(index, description string, 
 
 			lowLabelSlice := append(labelSlice, ALERT_NAME)
 			lowValueSlice := append(valueSlice, ALERT_LOW_CURRENT_SESSION)
-			if temp < 0 && total <= idealNumberValue {
+			if temp < 0 && total <= minNumberValue {
 				temp = 0
 			}
 			containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLabelSlice, nil)
@@ -551,11 +552,12 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 		fmt.Printf("low temp is %v\n", temp)
 
 		// min number of nodes, no need to scale in.
-		idealNumberSValue := GetContainerEnvValue(containerInfo, IDEAL_NODE_NUMBER)
-		idealNumberValue, _ := strconv.ParseInt(idealNumberSValue, 0, 64)
-		if nodeNumber != -1 && nodeNumber <= idealNumberValue {
+		minNumberSValue := GetContainerEnvValue(containerInfo, MIN_NODE_NUMBER)
+		minNumberValue, _ := strconv.ParseInt(minNumberSValue, 0, 64)
+		if nodeNumber != -1 && nodeNumber <= minNumberValue {
 			temp = 1.0
 		}
+
 		switch index {
 		case INDEX_CPU_USAGE:
 			{
@@ -576,6 +578,41 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 		
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
 		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, lowValueSlice...)
+	}
+
+	if len(highThresholdSValue) != 0 {
+		highLableSlice := labelSlice
+		highValueSlice := valueSlice
+		temp := value / highThreshold
+		fmt.Printf("high temp is %v\n", temp)
+
+		// max number of nodes, no need to scale in.
+		maxNumberSValue := GetContainerEnvValue(containerInfo, MAX_NODE_NUMBER)
+		maxNumberValue, _ := strconv.ParseInt(maxNumberSValue, 0, 64)
+		if nodeNumber != -1 && nodeNumber >= maxNumberValue {
+			temp = 1.0
+		}
+
+		switch index {
+		case INDEX_CPU_USAGE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_HIGH_CPU)
+			}
+		case INDEX_MEMORY_USAGE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_HIGH_MEMORY)
+			}
+		case INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
+			}
+		}
+
+		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_high"+THRESHOLD_CAL_RESULT_SUFFIX, description, highLableSlice, nil)
+		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, highValueSlice...)
 	}
 
 	if len(highThresholdSValue) != 0 {
