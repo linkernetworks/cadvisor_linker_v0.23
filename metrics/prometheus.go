@@ -576,6 +576,8 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "decoderNumber", "transmitPackageNumber", container, ch)
 			} else if strings.Contains(image, "linker_hss_router") {
 				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "hssNumber", "transmitPackageNumber", container, ch)
+			} else if strings.Contains(image, "gw_monitor") {
+				c.GetGwMonitorInfo(INDEX_GW_INSTANCE, "Usage of PGW/SGW instance.", container, ch)
 			} else {
 				// normal image
 				if c.containerNameToLabels != nil {

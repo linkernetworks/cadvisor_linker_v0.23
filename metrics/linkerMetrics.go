@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -41,6 +42,9 @@ const (
 	INDEX_NETWORK_TRANSMIT_PACKAGES_TOTAL = "network_transmit_packets_per_second_total"
 	INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL  = "network_receive_packets_per_second_total"
 	INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER = "transmit_package_number"
+	INDEX_GW_INSTANCE                     = "gw_conn_number"
+	INDEX_PGW_INSTANCE                    = "pgw_conn_number"
+	INDEX_SGW_INSTANCE                    = "sgw_conn_number"
 
 	ALERT_NAME = "alert_name"
 
@@ -57,6 +61,12 @@ const (
 
 	ALERT_HIGH_CURRENT_SESSION = "HighCurrentSessionAlert"
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
+
+	//PGW & SGW Instances alerts
+	ALERT_PGW_HIGH_INSTANCE = "HighPgwInstanceAlert"
+	ALERT_PGW_LOW_INSTANCE  = "LowPgwInstanceAlert"
+	ALERT_SGW_HIGH_INSTANCE = "HighSgwInstanceAlert"
+	ALERT_SGW_LOW_INSTANCE  = "LowSgwInstanceAlert"
 
 	INDEX_CURRENT_SESSION = "current_session"
 	IDEAL_NODE_NUMBER     = "IDEAL_NODE_NUMBER"
@@ -573,6 +583,16 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
+		case INDEX_PGW_INSTANCE:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_PGW_LOW_INSTANCE)
+			}
+		case INDEX_SGW_INSTANCE:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_SGW_LOW_INSTANCE)
+			}
 		}
 
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
@@ -600,6 +620,16 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
+			}
+		case INDEX_PGW_INSTANCE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_PGW_HIGH_INSTANCE)
+			}
+		case INDEX_SGW_INSTANCE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_SGW_HIGH_INSTANCE)
 			}
 		}
 
@@ -734,4 +764,92 @@ func parseJsonData(data, key1, key2 string) (node int, packageNumber int) {
 	node, _ = jq.Int(key1)
 	packageNumber, _ = jq.Int(key2)
 	return node, packageNumber
+}
+
+// Call PGW/SGW monitor
+func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, container *info.ContainerInfo, ch chan<- prometheus.Metric) {
+	fmt.Printf("GetGwMonitorInfo %v, %v\n", index, container)
+	id := container.Name
+	name := id
+	if len(container.Aliases) > 0 {
+		name = container.Aliases[0]
+	}
+
+	image := container.Spec.Image
+	containerInfo, err := c.client.InspectContainer(name)
+
+	if !c.IsAlertEnable(containerInfo) {
+		fmt.Println("Alert not enabled.")
+		return
+	}
+
+	if err != nil {
+		// inspect docker instance failed.
+		fmt.Println("inspect docker instance failed.")
+	} else {
+		host := GetContainerEnvValue(containerInfo, "HOST")
+		// TODO change port
+		monitorPort := "18089"
+
+		gwType, connections, instances, err := CallGwMonitor(host, monitorPort)
+		fmt.Printf("type %v, conn %v, instances %v, err %v", gwType, connections, instances, err)
+
+		if err != nil {
+			fmt.Printf("call GwMonitor to fetch info error: %v \n", err)
+			return
+		}
+
+		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
+
+		switch gwType {
+		// TODO
+		case "PGW":
+			process(INDEX_PGW_INSTANCE, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+		case "SGW":
+			process(INDEX_SGW_INSTANCE, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+		default:
+			fmt.Println("unknown gw type")
+		}
+	}
+}
+
+// Call monitor RESTful API
+func CallGwMonitor(ip, port string) (gwType string, connections, instances int, err error) {
+	url := "http://" + ip + ":" + port + "/monitor"
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("get %s error: %v\n", url, err)
+		return
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	// body json struct
+	response := struct {
+		Success bool `Success`
+		Data    struct {
+			Instances   int    `Instances`
+			ConnNum     int    `ConnNum`
+			MonitorType string `MonitorType`
+		} `Data`
+		Err string `Err`
+	}{}
+
+	err = json.Unmarshal(data, &response)
+	if err != nil {
+		fmt.Printf("unmarshal json error: %v", err)
+		return
+	}
+
+	if len(response.Err) > 0 {
+		err = errors.New(response.Err)
+		fmt.Printf("monitor return error: %s\n", response.Err)
+		return
+	}
+
+	if response.Success {
+		gwType = response.Data.MonitorType
+		connections = response.Data.ConnNum
+		instances = response.Data.Instances
+		return
+	}
+	return
 }
