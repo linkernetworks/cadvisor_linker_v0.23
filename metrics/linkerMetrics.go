@@ -62,12 +62,6 @@ const (
 	ALERT_HIGH_CURRENT_SESSION = "HighCurrentSessionAlert"
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
 
-	//PGW & SGW Instances alerts
-	ALERT_PGW_HIGH_INSTANCE = "HighPgwInstanceAlert"
-	ALERT_PGW_LOW_INSTANCE  = "LowPgwInstanceAlert"
-	ALERT_SGW_HIGH_INSTANCE = "HighSgwInstanceAlert"
-	ALERT_SGW_LOW_INSTANCE  = "LowSgwInstanceAlert"
-
 	INDEX_CURRENT_SESSION = "current_session"
 	IDEAL_NODE_NUMBER     = "IDEAL_NODE_NUMBER"
 
