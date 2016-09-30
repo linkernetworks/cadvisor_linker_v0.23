@@ -646,34 +646,6 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, highValueSlice...)
 	}
 
-	if len(highThresholdSValue) != 0 {
-		temp := value / highThreshold
-		fmt.Printf("high temp is %v\n", temp)
-
-		highLableSlice := labelSlice
-		highValueSlice := valueSlice
-		switch index {
-		case INDEX_CPU_USAGE:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_CPU)
-			}
-		case INDEX_MEMORY_USAGE:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_MEMORY)
-			}
-		case INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
-			}
-		}
-
-		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_high"+THRESHOLD_CAL_RESULT_SUFFIX, description, highLableSlice, nil)
-		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, highValueSlice...)
-	}
-
 }
 
 func checkString(line string) string {
