@@ -42,9 +42,9 @@ const (
 	INDEX_NETWORK_TRANSMIT_PACKAGES_TOTAL = "network_transmit_packets_per_second_total"
 	INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL  = "network_receive_packets_per_second_total"
 	INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER = "transmit_package_number"
-	INDEX_GW_INSTANCE                     = "gw_conn_number"
-	INDEX_PGW_INSTANCE                    = "pgw_conn_number"
-	INDEX_SGW_INSTANCE                    = "sgw_conn_number"
+	INDEX_GW_CONNECTIONS                  = "gw_conn_number"
+	INDEX_PGW_CONNECTIONS                 = "pgw_conn_number"
+	INDEX_SGW_CONNECTIONS                 = "sgw_conn_number"
 
 	ALERT_NAME = "alert_name"
 
@@ -585,12 +585,12 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
-		case INDEX_PGW_INSTANCE:
+		case INDEX_PGW_CONNECTIONS:
 			{
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_PGW_LOW_CONNECTIONS)
 			}
-		case INDEX_SGW_INSTANCE:
+		case INDEX_SGW_CONNECTIONS:
 			{
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_SGW_LOW_CONNECTIONS)
@@ -630,12 +630,12 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
 			}
-		case INDEX_PGW_INSTANCE:
+		case INDEX_PGW_CONNECTIONS:
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_PGW_HIGH_CONNECTIONS)
 			}
-		case INDEX_SGW_INSTANCE:
+		case INDEX_SGW_CONNECTIONS:
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_SGW_HIGH_CONNECTIONS)
@@ -840,9 +840,9 @@ func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, contai
 
 		switch gwType {
 		case "PGW":
-			process(INDEX_PGW_INSTANCE, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_PGW_CONNECTIONS, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		case "SGW":
-			process(INDEX_SGW_INSTANCE, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_SGW_CONNECTIONS, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		default:
 			fmt.Printf("unknown gw type: %s\n", gwType)
 		}
