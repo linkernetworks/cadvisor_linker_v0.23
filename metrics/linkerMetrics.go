@@ -42,9 +42,9 @@ const (
 	INDEX_NETWORK_TRANSMIT_PACKAGES_TOTAL = "network_transmit_packets_per_second_total"
 	INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL  = "network_receive_packets_per_second_total"
 	INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER = "transmit_package_number"
-	INDEX_GW_INSTANCE                     = "gw_conn_number"
-	INDEX_PGW_INSTANCE                    = "pgw_conn_number"
-	INDEX_SGW_INSTANCE                    = "sgw_conn_number"
+	INDEX_GW_CONNECTIONS                  = "gw_conn_number"
+	INDEX_PGW_CONNECTIONS                 = "pgw_conn_number"
+	INDEX_SGW_CONNECTIONS                 = "sgw_conn_number"
 
 	ALERT_NAME = "alert_name"
 
@@ -61,6 +61,12 @@ const (
 
 	ALERT_HIGH_CURRENT_SESSION = "HighCurrentSessionAlert"
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
+
+	//PGW & SGW Instances alerts
+	ALERT_PGW_HIGH_CONNECTIONS = "HighPgwConnectionsAlert"
+	ALERT_PGW_LOW_CONNECTIONS  = "LowPgwConnectionsAlert"
+	ALERT_SGW_HIGH_CONNECTIONS = "HighSgwConnectionsAlert"
+	ALERT_SGW_LOW_CONNECTIONS  = "LowSgwConnectionsAlert"
 
 	INDEX_CURRENT_SESSION = "current_session"
 	MIN_NODE_NUMBER       = "INSTANCE_MIN_NUM"
@@ -579,6 +585,16 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
+		case INDEX_PGW_CONNECTIONS:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_PGW_LOW_CONNECTIONS)
+			}
+		case INDEX_SGW_CONNECTIONS:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_SGW_LOW_CONNECTIONS)
+			}
 		}
 
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
@@ -614,33 +630,15 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
 			}
-		}
-
-		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_high"+THRESHOLD_CAL_RESULT_SUFFIX, description, highLableSlice, nil)
-		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, temp, highValueSlice...)
-	}
-
-	if len(highThresholdSValue) != 0 {
-		temp := value / highThreshold
-		fmt.Printf("high temp is %v\n", temp)
-
-		highLableSlice := labelSlice
-		highValueSlice := valueSlice
-		switch index {
-		case INDEX_CPU_USAGE:
+		case INDEX_PGW_CONNECTIONS:
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_CPU)
+				highValueSlice = append(highValueSlice, ALERT_PGW_HIGH_CONNECTIONS)
 			}
-		case INDEX_MEMORY_USAGE:
+		case INDEX_SGW_CONNECTIONS:
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_MEMORY)
-			}
-		case INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER:
-			{
-				highLableSlice = append(highLableSlice, ALERT_NAME)
-				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
+				highValueSlice = append(highValueSlice, ALERT_SGW_HIGH_CONNECTIONS)
 			}
 		}
 
@@ -814,9 +812,9 @@ func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, contai
 
 		switch gwType {
 		case "PGW":
-			process(INDEX_PGW_INSTANCE, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_PGW_CONNECTIONS, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		case "SGW":
-			process(INDEX_SGW_INSTANCE, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_SGW_CONNECTIONS, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
 		default:
 			fmt.Printf("unknown gw type: %s\n", gwType)
 		}
