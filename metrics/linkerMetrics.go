@@ -62,6 +62,12 @@ const (
 	ALERT_HIGH_CURRENT_SESSION = "HighCurrentSessionAlert"
 	ALERT_LOW_CURRENT_SESSION  = "LowCurrentSessionAlert"
 
+	//PGW & SGW Instances alerts
+	ALERT_PGW_HIGH_CONNECTIONS = "HighPgwConnectionsAlert"
+	ALERT_PGW_LOW_CONNECTIONS  = "LowPgwConnectionsAlert"
+	ALERT_SGW_HIGH_CONNECTIONS = "HighSgwConnectionsAlert"
+	ALERT_SGW_LOW_CONNECTIONS  = "LowSgwConnectionsAlert"
+
 	INDEX_CURRENT_SESSION = "current_session"
 	MIN_NODE_NUMBER       = "INSTANCE_MIN_NUM"
 	MAX_NODE_NUMBER       = "INSTANCE_MAX_NUM"
@@ -579,6 +585,16 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 				lowLableSlice = append(lowLableSlice, ALERT_NAME)
 				lowValueSlice = append(lowValueSlice, ALERT_LOW_TRANSMIT_PACKAGE_NUMBER)
 			}
+		case INDEX_PGW_INSTANCE:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_PGW_LOW_CONNECTIONS)
+			}
+		case INDEX_SGW_INSTANCE:
+			{
+				lowLableSlice = append(lowLableSlice, ALERT_NAME)
+				lowValueSlice = append(lowValueSlice, ALERT_SGW_LOW_CONNECTIONS)
+			}
 		}
 
 		containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLableSlice, nil)
@@ -613,6 +629,16 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 			{
 				highLableSlice = append(highLableSlice, ALERT_NAME)
 				highValueSlice = append(highValueSlice, ALERT_HIGH_TRANSMIT_PACKAGE_NUMBER)
+			}
+		case INDEX_PGW_INSTANCE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_PGW_HIGH_CONNECTIONS)
+			}
+		case INDEX_SGW_INSTANCE:
+			{
+				highLableSlice = append(highLableSlice, ALERT_NAME)
+				highValueSlice = append(highValueSlice, ALERT_SGW_HIGH_CONNECTIONS)
 			}
 		}
 
