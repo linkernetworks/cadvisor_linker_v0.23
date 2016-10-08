@@ -800,6 +800,8 @@ func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, contai
 		// TODO change port
 		monitorPort := "18089"
 
+		// connections: total connections of all instances
+		// instances: number of GW containers
 		gwType, connections, instances, err := CallGwMonitor(host, monitorPort)
 		fmt.Printf("type %v, conn %v, instances %v, err %v", gwType, connections, instances, err)
 
@@ -808,13 +810,18 @@ func (c *PrometheusCollector) GetGwMonitorInfo(index, description string, contai
 			return
 		}
 
+		if instances <= 0 {
+			fmt.Printf("instances is %d, skip\n", instances)
+			return
+		}
+
 		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
 
 		switch gwType {
 		case "PGW":
-			process(INDEX_PGW_CONNECTIONS, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_PGW_CONNECTIONS, "Usage of PGW instance.", id, image, name, appId, int64(instances), float64(connections)/float64(instances), containerInfo, ch)
 		case "SGW":
-			process(INDEX_SGW_CONNECTIONS, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections), containerInfo, ch)
+			process(INDEX_SGW_CONNECTIONS, "Usage of SGW instance.", id, image, name, appId, int64(instances), float64(connections)/float64(instances), containerInfo, ch)
 		default:
 			fmt.Printf("unknown gw type: %s\n", gwType)
 		}
