@@ -439,13 +439,16 @@ func (c *PrometheusCollector) FetchElasticSerachInfo(index, description string, 
 		url := "http://" + DNS_DOMAINNAME + ":" + LINKER_ELASTICSERACH_PORT + "/_cat/nodes?h=i,rp,m,cpu"
 		resp, err := http.Get(url)
 		if err != nil {
+			fmt.Printf("http get error: %v\n", err)
 			return
 		}
 		defer resp.Body.Close()
 		resp_body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
+			fmt.Printf("read body error: %v\n", err)
 			return
 		}
+		fmt.Printf("body: %v\n", resp_body)
 
 		nodes := strings.Split(string(resp_body), "\n")
 
