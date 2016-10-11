@@ -572,9 +572,7 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 
 			} else if strings.Contains(image, "linker_es") {
 				c.FetchElasticSerachInfo(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance.", container, ch)
-			} else if strings.Contains(image, "linker_stack") {
-				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "decoderNumber", "transmitPackageNumber", container, ch)
-			} else if strings.Contains(image, "linker_hss_router") {
+			} else if strings.Contains(image, "stack") {
 				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "hssNumber", "transmitPackageNumber", container, ch)
 			} else if strings.Contains(image, "gw_monitor") {
 				c.GetGwMonitorInfo(INDEX_GW_CONNECTIONS, "Usage of PGW/SGW instance.", container, ch)
