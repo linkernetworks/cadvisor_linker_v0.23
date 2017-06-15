@@ -77,7 +77,7 @@ const (
 )
 
 func (c *PrometheusCollector) CalLinkerIndexs(index, description string, container *info.ContainerInfo, ch chan<- prometheus.Metric, now, previous *info.ContainerStats, nodeNumber int64) {
-	labels := []string{"id", "image", "name", "service_group_id", "service_group_instance_id", "service_order_id", "app_container_id", "mesos_task_id", "group_id", "app_id", "repair_template_id"}
+	labels := []string{"id", "image", "name", "service_group_id", "service_group_instance_id", "service_order_id", "app_container_id", "mesos_task_id", "group_id", "app_id", "repair_template_id", "alert"}
 
 	id := container.Name
 	name := id
@@ -104,7 +104,7 @@ func (c *PrometheusCollector) CalLinkerIndexs(index, description string, contain
 		groupId := GetContainerEnvValue(containerInfo, LINKER_GROUP_ID)
 		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
 		repairTemplateId := GetContainerEnvValue(containerInfo, LINKER_REPAIR_TEMPALTE_ID)
-		baseLabelValues := []string{id, image, name, serviceGroupId, serviceGroupInstanceId, serviceOrderId, appContainerId, mesosTaskId, groupId, appId, repairTemplateId}
+		baseLabelValues := []string{id, image, name, serviceGroupId, serviceGroupInstanceId, serviceOrderId, appContainerId, mesosTaskId, groupId, appId, repairTemplateId, "true"}
 		value := float64(0)
 
 		lowThreadoldEnv := index + THRESHOLD_LOW_SUFFIX
@@ -292,91 +292,6 @@ func (c *PrometheusCollector) CalLinkerIndexs(index, description string, contain
 	}
 }
 
-func (c *PrometheusCollector) CalLinkerHAProxyIndexs(index, description string, container *info.ContainerInfo, ch chan<- prometheus.Metric, value int64, total int64) {
-	labels := []string{"id", "image", "name", "mesos_task_id", "group_id", "app_id", "repair_template_id"}
-
-	fmt.Printf("calling CalLinkerHAProxyIndexs is %s\n", "ddd")
-
-	id := container.Name
-	name := id
-	if len(container.Aliases) > 0 {
-		name = container.Aliases[0]
-	}
-
-	image := container.Spec.Image
-
-	containerInfo, err := c.client.InspectContainer(name)
-
-	if !c.IsAlertEnable(containerInfo) {
-		return
-	}
-
-	if err != nil {
-		// inspect docker instance failed.
-	} else {
-		//		serviceGroupId := GetContainerEnvValue(containerInfo, LINKER_SG_ID)
-		//		serviceGroupInstanceId := GetContainerEnvValue(containerInfo, LINKER_SGI_ID)
-		//		serviceOrderId := GetContainerEnvValue(containerInfo, LINKDER_SO_ID)
-		//		appContainerId := GetContainerEnvValue(containerInfo, LINKER_APP_CONTAINER_ID)
-		mesosTaskId := GetContainerEnvValue(containerInfo, LINKER_MESOS_TASK_ID)
-		groupId := GetContainerEnvValue(containerInfo, LINKER_GROUP_ID)
-		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
-		repairTemplateId := GetContainerEnvValue(containerInfo, LINKER_REPAIR_TEMPALTE_ID)
-		baseLabelValues := []string{id, image, name, mesosTaskId, groupId, appId, repairTemplateId}
-
-		lowThreadoldEnv := index + THRESHOLD_LOW_SUFFIX
-		lowThresholdSValue := GetContainerEnvValue(containerInfo, strings.ToUpper(lowThreadoldEnv))
-		highThreadoldEnv := index + THRESHOLD_HIGH_SUFFIX
-		highThresholdSValue := GetContainerEnvValue(containerInfo, strings.ToUpper(highThreadoldEnv))
-
-		minNumberSValue := GetContainerEnvValue(containerInfo, MIN_NODE_NUMBER)
-		minNumberValue, _ := strconv.ParseInt(minNumberSValue, 0, 64)
-		fmt.Printf("minNumberSValue is %s\n", minNumberSValue)
-
-		lowThreshold := int64(0)
-		// check if Low Threshold is set.
-		if len(lowThresholdSValue) != 0 {
-			lowThreshold, _ = strconv.ParseInt(lowThresholdSValue, 0, 64)
-		}
-		fmt.Printf("lowThreshold is %v \n", lowThreshold)
-
-		highThreshold := int64(0)
-		// check if High Threshold is set.
-		if len(highThresholdSValue) != 0 {
-			highThreshold, _ = strconv.ParseInt(highThresholdSValue, 0, 64)
-		}
-		fmt.Printf("highThreshold is %v \n", highThreshold)
-
-		labelSlice := labels[0:len(labels)]
-		valueSlice := baseLabelValues[0:len(baseLabelValues)]
-
-		if len(lowThresholdSValue) != 0 {
-			temp := value - lowThreshold*total
-			fmt.Printf("low comparation is %v\n", temp)
-
-			lowLabelSlice := append(labelSlice, ALERT_NAME)
-			lowValueSlice := append(valueSlice, ALERT_LOW_CURRENT_SESSION)
-			if temp < 0 && total <= minNumberValue {
-				temp = 0
-			}
-			containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_low"+THRESHOLD_CAL_RESULT_SUFFIX, description, lowLabelSlice, nil)
-			ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, float64(temp), lowValueSlice...)
-		}
-
-		if len(highThresholdSValue) != 0 {
-			temp := value - highThreshold*total
-			fmt.Printf("high comparation is %v\n", temp)
-			//			if temp > 0  {
-			highLabelSlice := append(labelSlice, ALERT_NAME)
-			highValueSlice := append(valueSlice, ALERT_HIGH_CURRENT_SESSION)
-			//			}
-			containerIndexUsageDesc := prometheus.NewDesc(CONTAINER_INDEX_PREFIX+index+"_high"+THRESHOLD_CAL_RESULT_SUFFIX, description, highLabelSlice, nil)
-			ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, float64(temp), highValueSlice...)
-		}
-
-	}
-}
-
 func (c *PrometheusCollector) IsAlertEnable(container *docker.Container) (result bool) {
 
 	if container != nil {
@@ -521,7 +436,7 @@ func (c *PrometheusCollector) FetchElasticSerachInfo(index, description string, 
 
 func process(index, description, id, image, name, appId string, nodeNumber int64, value float64, containerInfo *docker.Container, ch chan<- prometheus.Metric) {
 
-	labels := []string{"id", "image", "name", "service_group_id", "service_group_instance_id", "service_order_id", "app_container_id", "mesos_task_id", "group_id", "app_id", "repair_template_id"}
+	labels := []string{"id", "image", "name", "service_group_id", "service_group_instance_id", "service_order_id", "app_container_id", "mesos_task_id", "group_id", "app_id", "repair_template_id", "alert"}
 
 	fmt.Println("inspect docker instance successfully.")
 	serviceGroupId := GetContainerEnvValue(containerInfo, LINKER_SG_ID)
@@ -532,7 +447,7 @@ func process(index, description, id, image, name, appId string, nodeNumber int64
 	groupId := GetContainerEnvValue(containerInfo, LINKER_GROUP_ID)
 
 	repairTemplateId := GetContainerEnvValue(containerInfo, LINKER_REPAIR_TEMPALTE_ID)
-	baseLabelValues := []string{id, image, name, serviceGroupId, serviceGroupInstanceId, serviceOrderId, appContainerId, mesosTaskId, groupId, appId, repairTemplateId}
+	baseLabelValues := []string{id, image, name, serviceGroupId, serviceGroupInstanceId, serviceOrderId, appContainerId, mesosTaskId, groupId, appId, repairTemplateId, "true"}
 
 	lowThreadoldEnv := index + THRESHOLD_LOW_SUFFIX
 	lowThresholdSValue := GetContainerEnvValue(containerInfo, strings.ToUpper(lowThreadoldEnv))

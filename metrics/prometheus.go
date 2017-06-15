@@ -537,40 +537,7 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 
 			fmt.Printf("image: %s \n", image)
 
-			if strings.Contains(image, "linker_marathon_lb") {
-				// haproxy exporter
-				//				id := container.Name
-				//				name := id
-				//				if len(container.Aliases) > 0 {
-				//					name = container.Aliases[0]
-				//				}
-
-				//				containerInfo, _ := c.client.InspectContainer(name)
-				//				ipAddr := GetContainerEnvValue(containerInfo, LINKER_WEAVE_CIDR)
-				////				ipAddr = "192.168.10.71"
-				//				ipAddr = parseIpAddr(ipAddr)
-				//				url := "http://" + ipAddr + ":9090/haproxy?stats;csv;norefresh"
-				////				url = "http://192.168.10.71:32876/haproxy?stats;csv;norefresh"
-				//				fields := strconv.FormatInt(current_session_index, 10)
-				//				fmt.Printf("Haproxy url is %s \n", url)
-				//				value, total := initHaproxyExporter(url, fields, ch)
-				//				fmt.Printf("---------------- value = %v", value)
-				//				// Now for the actual metrics
-				//				stats := container.Stats[0]
-
-				//				fmt.Printf("Add new Metric for get networks adapter receive bytes by second\n")
-				//				// Add new Metric for get networks adapter receive bytes by second.
-				//				if len(container.Stats) >= 2 {
-				//					fmt.Printf("Add new Metric >=2 \n")
-				//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], int64(total))
-				//				} else {
-				//					fmt.Printf("Add new Metric =1 \n")
-				//					c.CalLinkerIndexs(INDEX_NETWORK_RECEIVE_PACKAGES_TOTAL, "Total receive package per second.", container, ch, stats, nil, int64(total))
-				//				}
-
-				//				c.CalLinkerHAProxyIndexs(INDEX_CURRENT_SESSION, "Current session number.", container, ch, value, int64(total))
-
-			} else if strings.Contains(image, "linker_es") {
+			if strings.Contains(image, "linker_es") {
 				c.FetchElasticSerachInfo(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance.", container, ch)
 			} else if strings.Contains(image, "stack") {
 				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "hssNumber", "transmitPackageNumber", container, ch)
@@ -614,7 +581,6 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 				// Add new Metric for caluate memory usage.
 				c.CalLinkerIndexs(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance.", container, ch, stats, nil, -1)
 
-				// Add new Metric for get networks adapter receive bytes by second.
 				if len(container.Stats) >= 2 {
 					c.CalLinkerIndexs(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], -1)
 				} else {
