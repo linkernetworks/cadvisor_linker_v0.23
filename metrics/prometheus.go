@@ -543,6 +543,25 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 				c.GetLinkerUDPMonitorInfo(INDEX_NETWORK_TRANSMIT_PACKAGE_NUMBER, "NETWORK TRANSMIT PACKAGE NUMBER NETWORK_TRANSMIT_PACKAGE_NUMBER", "8000", "udp", "hssNumber", "transmitPackageNumber", container, ch)
 			} else if strings.Contains(image, "gw_monitor") {
 				c.GetGwMonitorInfo(INDEX_GW_CONNECTIONS, "Usage of PGW/SGW instance.", container, ch)
+			} else if strings.Contains(image, "linker_pgw") || strings.Contains(image, "linker_sgw") {
+
+				stats := container.Stats[0]
+				for _, cm := range c.containerMetrics {
+					desc := cm.desc(baseLabels)
+					for _, metricValue := range cm.getValues(stats) {
+						ch <- prometheus.MustNewConstMetric(desc, cm.valueType, float64(metricValue.value), append(baseLabelValues, metricValue.labels...)...)
+					}
+				}
+
+				// Add new Metric for caluate memory usage.
+				c.GetContainerInfo(INDEX_MEMORY_USAGE, "Usage of Memory on the Docker instance which to be averaged.", container, ch, stats, nil, -1)
+
+				// Add new Metric for get networks adapter receive bytes by second.
+				if len(container.Stats) >= 2 {
+					c.GetContainerInfo(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance which to be averaged.", container, ch, container.Stats[len(container.Stats)-1], container.Stats[len(container.Stats)-2], -1)
+				} else {
+					c.GetContainerInfo(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance which to be averaged.", container, ch, stats, nil, -1)
+				}
 			} else {
 				// normal image
 				if c.containerNameToLabels != nil {
@@ -586,10 +605,10 @@ func (c *PrometheusCollector) collectContainersInfo(ch chan<- prometheus.Metric)
 				} else {
 					c.CalLinkerIndexs(INDEX_CPU_USAGE, "Usage of CPU on the Docker instance.", container, ch, stats, nil, -1)
 				}
+
 			}
 
 		}
-
 	}
 }
 

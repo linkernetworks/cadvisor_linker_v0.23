@@ -786,3 +786,73 @@ func CallGwMonitor(ip, port string) (gwType string, connections, instances int, 
 	}
 	return
 }
+
+func (c *PrometheusCollector) GetContainerInfo(index, description string, container *info.ContainerInfo, ch chan<- prometheus.Metric, now, previous *info.ContainerStats, nodeNumber int64) {
+	labels := []string{"id", "image", "name", "service_group_id", "service_group_instance_id", "service_order_id", "app_container_id", "mesos_task_id", "group_id", "app_id"}
+
+	id := container.Name
+	name := id
+	if len(container.Aliases) > 0 {
+		name = container.Aliases[0]
+	}
+
+	image := container.Spec.Image
+
+	containerInfo, err := c.client.InspectContainer(name)
+
+	if err != nil {
+		// inspect docker instance failed.
+	} else {
+		serviceGroupId := GetContainerEnvValue(containerInfo, LINKER_SG_ID)
+		serviceGroupInstanceId := GetContainerEnvValue(containerInfo, LINKER_SGI_ID)
+		serviceOrderId := GetContainerEnvValue(containerInfo, LINKDER_SO_ID)
+		appContainerId := GetContainerEnvValue(containerInfo, LINKER_APP_CONTAINER_ID)
+		mesosTaskId := GetContainerEnvValue(containerInfo, LINKER_MESOS_TASK_ID)
+		groupId := GetContainerEnvValue(containerInfo, LINKER_GROUP_ID)
+		appId := GetContainerEnvValue(containerInfo, LINKER_APP_ID)
+		baseLabelValues := []string{id, image, name, serviceGroupId, serviceGroupInstanceId, serviceOrderId, appContainerId, mesosTaskId, groupId, appId}
+		value := float64(0)
+
+		labelSlice := labels[0:len(labels)]
+		valueSlice := baseLabelValues[0:len(baseLabelValues)]
+
+		// check index type
+		switch index {
+		case INDEX_CPU_USAGE:
+			{
+				// Maybe there are more than one network adpater here.
+				if previous == nil {
+					value = float64(now.Cpu.Usage.Total)
+				} else {
+					value = float64(now.Cpu.Usage.Total - previous.Cpu.Usage.Total)
+					interval := now.Timestamp.UnixNano() - previous.Timestamp.UnixNano()
+					value = value * 100.0 / float64(interval)
+					fmt.Printf("CPU: mesostask.id=%s , usage=%d \n", mesosTaskId, value)
+				}
+
+				// add label low and high threshold
+				//				labelSlice = append(labelSlice, index)
+				//				valueSlice = append(valueSlice, strconv.FormatFloat(value, 'f', -1, 64))
+
+			}
+		case INDEX_MEMORY_USAGE:
+			{
+				if container.Spec.Memory.Limit != 0 {
+					value = float64(now.Memory.Usage) * 100 / float64(container.Spec.Memory.Limit)
+					fmt.Printf("Memory: mesostask.id=%s , usage=%d \n", mesosTaskId, value)
+					// add label low and high threshold
+					//					labelSlice = append(labelSlice, index)
+					//					valueSlice = append(valueSlice, strconv.FormatFloat(value, 'f', -1, 64))
+				}
+			}
+		default:
+			{
+				// do nothing
+			}
+		}
+
+		containerIndexUsageDesc := prometheus.NewDesc(index+"_tobe_averaged", description, labelSlice, nil)
+		ch <- prometheus.MustNewConstMetric(containerIndexUsageDesc, prometheus.GaugeValue, value, valueSlice...)
+
+	}
+}
